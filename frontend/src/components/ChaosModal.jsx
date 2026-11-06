@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Flame, Cpu, Database, HardDrive, Loader2, Play, Sparkles } from 'lucide-react'
+import { X, Flame, Cpu, Database, HardDrive, Loader2, Play, Sparkles, Layers, Send } from 'lucide-react'
 
 export default function ChaosModal({ isOpen, onClose, onTriggered }) {
   const [selectedScenario, setSelectedScenario] = useState('oom_memory_leak')
@@ -21,7 +21,7 @@ export default function ChaosModal({ isOpen, onClose, onTriggered }) {
     {
       id: 'db_connection_starvation',
       title: 'Database Connection Pool Starvation & HTTP 500 Outage',
-      service: 'order-service',
+      service: 'payment-gateway',
       icon: Database,
       severity: 'P1 CRITICAL',
       color: 'amber',
@@ -35,6 +35,24 @@ export default function ChaosModal({ isOpen, onClose, onTriggered }) {
       severity: 'P2 HIGH',
       color: 'blue',
       description: 'Simulates thread pool starvation. Container CPU reaches 100% of cgroup limit, 78% CFS periods throttled, failing readiness/liveness probes.'
+    },
+    {
+      id: 'redis_cache_timeout',
+      title: 'Redis Cache Timeout & Cascading Database Overload',
+      service: 'inventory-service',
+      icon: Layers,
+      severity: 'P2 HIGH',
+      color: 'amber',
+      description: 'Simulates Redis sentinel timeout. 1,200 req/sec cache miss stampede bypasses cache and floods PostgreSQL primary with read queries.'
+    },
+    {
+      id: 'async_queue_backlog',
+      title: 'Async Notification Worker Dead-Letter Queue Saturation',
+      service: 'notification-worker',
+      icon: Send,
+      severity: 'P3 MODERATE',
+      color: 'blue',
+      description: 'Simulates downstream SMTP rate-limit 429 errors. Background task queue backlog surpasses 10,000 tasks, saturating worker pools.'
     }
   ]
 

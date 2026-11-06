@@ -146,15 +146,27 @@ class SimulationTriggerView(APIView):
             },
             "db_connection_starvation": {
                 "title": "Database Connection Pool Starvation & HTTP 500 Outage",
-                "service_name": "order-service",
+                "service_name": "payment-gateway",
                 "severity": IncidentSeverity.P1_CRITICAL,
-                "summary": "Surge of HTTP 500 errors on order-service. Connection timeout exceptions recorded."
+                "summary": "Surge of HTTP 500 errors on payment endpoints. Connection pool saturated with 88 idle in transaction."
             },
             "cpu_throttling": {
                 "title": "CFS CPU Quota Throttling & Gateway 504 Timeouts",
                 "service_name": "auth-service",
                 "severity": IncidentSeverity.P2_HIGH,
                 "summary": "Worker thread pool starvation and high latency spikes exceeding health check timeouts."
+            },
+            "redis_cache_timeout": {
+                "title": "Redis Cache Cluster Timeout & Cascading Database Overload",
+                "service_name": "inventory-service",
+                "severity": IncidentSeverity.P2_HIGH,
+                "summary": "Redis cluster timeout causing 1,200 req/sec cache miss stampede to directly hit PostgreSQL primary database."
+            },
+            "async_queue_backlog": {
+                "title": "Async Notification Worker Dead-Letter Queue Spike",
+                "service_name": "notification-worker",
+                "severity": IncidentSeverity.P3_MODERATE,
+                "summary": "Upstream SMTP rate limit 429 triggered queue backlog exceeding 10,000 pending message tasks."
             }
         }
 

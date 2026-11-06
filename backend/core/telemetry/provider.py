@@ -118,6 +118,40 @@ class SimulationTelemetryProvider(TelemetryProvider):
                     "anomaly_detected": True
                 }
 
+        elif self.active_scenario == "redis_cache_timeout":
+            if metric_type in ["cache_miss", "errors", "http_requests_total"]:
+                values = [5 if i < len(timestamps) - 5 else 99 for i in range(len(timestamps))]
+                return {
+                    "metric": "redis_cache_miss_rate_percent",
+                    "unit": "%",
+                    "timestamps": timestamps,
+                    "values": values,
+                    "anomaly_detected": True,
+                    "anomaly_details": "Cache miss rate surged to 99% following Redis cluster timeout."
+                }
+            elif metric_type in ["db_qps", "connections"]:
+                values = [250 if i < len(timestamps) - 5 else 1250 for i in range(len(timestamps))]
+                return {
+                    "metric": "postgres_fallback_queries_per_sec",
+                    "unit": "qps",
+                    "timestamps": timestamps,
+                    "values": values,
+                    "anomaly_detected": True,
+                    "anomaly_details": "PostgreSQL read load surged by +400% due to cache bypass stampede."
+                }
+
+        elif self.active_scenario == "async_queue_backlog":
+            if metric_type in ["queue_depth", "connections", "errors"]:
+                values = [120 + i * 850 for i in range(len(timestamps))]
+                return {
+                    "metric": "celery_dead_letter_queue_depth",
+                    "unit": "messages",
+                    "timestamps": timestamps,
+                    "values": values,
+                    "anomaly_detected": True,
+                    "anomaly_details": "Dead letter queue depth exceeded 10,000 tasks due to SMTP rate-limit 429."
+                }
+
         # Fallback normal baseline
         values = [10 + (i % 3) * 5 for i in range(len(timestamps))]
         return {
@@ -215,6 +249,50 @@ class SimulationTelemetryProvider(TelemetryProvider):
                 }
             ]
 
+        elif self.active_scenario == "redis_cache_timeout":
+            return [
+                {
+                    "timestamp": (now - timedelta(minutes=4)).isoformat(),
+                    "level": "WARN",
+                    "service": service_name,
+                    "message": "RedisClusterClient: PING timeout on shard redis-master-01:6379 after 5000ms."
+                },
+                {
+                    "timestamp": (now - timedelta(minutes=3)).isoformat(),
+                    "level": "ERROR",
+                    "service": service_name,
+                    "message": "redis.exceptions.TimeoutError: Connection timed out during pipeline execute()."
+                },
+                {
+                    "timestamp": (now - timedelta(minutes=2)).isoformat(),
+                    "level": "WARN",
+                    "service": service_name,
+                    "message": "CacheMissStampede: Fallback query storm initiated against postgres primary."
+                }
+            ]
+
+        elif self.active_scenario == "async_queue_backlog":
+            return [
+                {
+                    "timestamp": (now - timedelta(minutes=5)).isoformat(),
+                    "level": "ERROR",
+                    "service": service_name,
+                    "message": "HTTP 429 Too Many Requests: Upstream SMTP gateway rate limit reached (100 req/sec limit)."
+                },
+                {
+                    "timestamp": (now - timedelta(minutes=3)).isoformat(),
+                    "level": "ERROR",
+                    "service": service_name,
+                    "message": "celery.exceptions.MaxRetriesExceededError: Task send_order_confirmation_email retry limit 5 exceeded."
+                },
+                {
+                    "timestamp": (now - timedelta(minutes=1)).isoformat(),
+                    "level": "WARN",
+                    "service": service_name,
+                    "message": "DeadLetterQueueOverflow: Task routing to dead-letter exchange saturated."
+                }
+            ]
+
         return [
             {
                 "timestamp": now.isoformat(),
@@ -267,6 +345,34 @@ class SimulationTelemetryProvider(TelemetryProvider):
                 "memory_limit_human": "1GB",
                 "cpu_limit": "0.5",
                 "last_exit_reason": "Readiness/Liveness probe timeout failure."
+            }
+        elif self.active_scenario == "redis_cache_timeout":
+            return {
+                "container_id": f"cnt_{service_name}_c779df",
+                "service_name": service_name,
+                "status": "degraded",
+                "running": True,
+                "restarting": False,
+                "exit_code": 0,
+                "oom_killed": False,
+                "restart_count": 0,
+                "memory_limit_human": "2GB",
+                "cpu_limit": "2.0",
+                "last_exit_reason": "Redis cache cluster connectivity timeout."
+            }
+        elif self.active_scenario == "async_queue_backlog":
+            return {
+                "container_id": f"cnt_{service_name}_f331ea",
+                "service_name": service_name,
+                "status": "running",
+                "running": True,
+                "restarting": False,
+                "exit_code": 0,
+                "oom_killed": False,
+                "restart_count": 0,
+                "memory_limit_human": "1GB",
+                "cpu_limit": "1.0",
+                "last_exit_reason": "Celery worker concurrency saturated with dead-letter backlog."
             }
 
         return {
