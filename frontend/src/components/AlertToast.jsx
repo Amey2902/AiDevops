@@ -90,3 +90,4 @@ export default function AlertToast({ alert, onClose, onViewIncident }) {
     </div>
   )
 }
+

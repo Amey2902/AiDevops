@@ -282,3 +282,16 @@ class SystemHealthWatchdogView(APIView):
             "critical_count": critical_count,
             "average_mtti_seconds": 38
         })
+
+
+class SeedClusterView(APIView):
+    """One-click API to seed 5 multi-factor production incidents."""
+    def post(self, request):
+        from .management.commands.seed_demo import run_seed_cluster
+        count = run_seed_cluster()
+        incidents = Incident.objects.all()
+        return Response({
+            "status": "success",
+            "message": f"Successfully seeded {count} diverse production incidents.",
+            "incidents": IncidentSerializer(incidents, many=True).data
+        }, status=status.HTTP_201_CREATED)

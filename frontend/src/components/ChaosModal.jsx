@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { X, Flame, Cpu, Database, HardDrive, Loader2, Play } from 'lucide-react'
+import { X, Flame, Cpu, Database, HardDrive, Loader2, Play, Sparkles } from 'lucide-react'
 
 export default function ChaosModal({ isOpen, onClose, onTriggered }) {
   const [selectedScenario, setSelectedScenario] = useState('oom_memory_leak')
   const [loading, setLoading] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   if (!isOpen) return null
 
@@ -55,6 +56,26 @@ export default function ChaosModal({ isOpen, onClose, onTriggered }) {
       console.error('Error triggering simulation:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSeedCluster = async () => {
+    setSeeding(true)
+    try {
+      const res = await fetch('/api/simulation/seed-cluster/', {
+        method: 'POST'
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.incidents && data.incidents.length > 0) {
+          onTriggered(data.incidents[0])
+        }
+        onClose()
+      }
+    } catch (err) {
+      console.error('Error seeding demo cluster:', err)
+    } finally {
+      setSeeding(false)
     }
   }
 
@@ -114,9 +135,23 @@ export default function ChaosModal({ isOpen, onClose, onTriggered }) {
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">
-          <span className="text-xs text-slate-400">
-            DevOpsAI will autonomously inspect telemetry & runbooks.
-          </span>
+          <button
+            onClick={handleSeedCluster}
+            disabled={seeding || loading}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            {seeding ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Seeding 5 Scenarios...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Seed Full Multi-Service Cluster</span>
+              </>
+            )}
+          </button>
 
           <div className="flex items-center space-x-2">
             <button
@@ -127,7 +162,7 @@ export default function ChaosModal({ isOpen, onClose, onTriggered }) {
             </button>
             <button
               onClick={handleLaunch}
-              disabled={loading}
+              disabled={loading || seeding}
               className="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-bold shadow-lg shadow-rose-600/20 transition-all disabled:opacity-50"
             >
               {loading ? (

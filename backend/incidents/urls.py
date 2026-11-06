@@ -5,7 +5,8 @@ from .views import (
     SimulationTriggerView, 
     KnowledgeBaseView, 
     AlertWebhookView, 
-    SystemHealthWatchdogView
+    SystemHealthWatchdogView,
+    SeedClusterView
 )
 
 router = DefaultRouter()
@@ -14,6 +15,7 @@ router.register(r'incidents', IncidentViewSet, basename='incident')
 urlpatterns = [
     path('', include(router.urls)),
     path('simulation/trigger/', SimulationTriggerView.as_view(), name='simulation-trigger'),
+    path('simulation/seed-cluster/', SeedClusterView.as_view(), name='seed-cluster'),
     path('knowledge/', KnowledgeBaseView.as_view(), name='knowledge-base'),
     path('webhook/', AlertWebhookView.as_view(), name='alert-webhook'),
     path('health/watchdog/', SystemHealthWatchdogView.as_view(), name='health-watchdog'),
