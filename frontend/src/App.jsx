@@ -6,6 +6,7 @@ import TelemetryViewer from './components/TelemetryViewer'
 import CopilotChatDrawer from './components/CopilotChatDrawer'
 import ChaosModal from './components/ChaosModal'
 import AlertToast from './components/AlertToast'
+import SimulationStoryboard from './components/SimulationStoryboard'
 import { RefreshCw } from 'lucide-react'
 
 export default function App() {
@@ -26,6 +27,8 @@ export default function App() {
   // Live 25-Second Storyboard Demo Mode
   const [isStoryActive, setIsStoryActive] = useState(false)
   const [storyCountdown, setStoryCountdown] = useState(25)
+  const [isStoryPaused, setIsStoryPaused] = useState(false)
+  const [hasCompletedStory, setHasCompletedStory] = useState(false)
   
   const knownIncidentIds = useRef(new Set())
 
@@ -101,20 +104,21 @@ export default function App() {
   // Live 25-Second Storyboard Demo Countdown
   useEffect(() => {
     let timer = null
-    if (isStoryActive) {
+    if (isStoryActive && !isStoryPaused) {
       if (storyCountdown > 0) {
         timer = setTimeout(() => {
           setStoryCountdown(prev => prev - 1)
         }, 1000)
       } else {
         setIsStoryActive(false)
+        setHasCompletedStory(true)
         triggerChaosStrike()
       }
     }
     return () => {
       if (timer) clearTimeout(timer)
     }
-  }, [isStoryActive, storyCountdown])
+  }, [isStoryActive, storyCountdown, isStoryPaused])
 
   const triggerChaosStrike = async () => {
     try {
@@ -140,11 +144,18 @@ export default function App() {
   const handleStartStory = () => {
     setStoryCountdown(25)
     setIsStoryActive(true)
+    setIsStoryPaused(false)
+    setHasCompletedStory(false)
     setWatchdogStatus('healthy')
   }
 
   const handleStopStory = () => {
     setIsStoryActive(false)
+    setHasCompletedStory(false)
+  }
+
+  const handleFastForward = () => {
+    setStoryCountdown(1)
   }
 
   const handleInvestigate = async (id) => {
@@ -306,57 +317,71 @@ export default function App() {
       />
 
       {/* Main Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Incident List Feed */}
-        <section className="lg:col-span-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Live Incident Triage</span>
-            <button
-              onClick={() => {
-                fetchIncidents()
-                checkWatchdogHealth()
-              }}
-              className="p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
-              title="Refresh"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-          </div>
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+        {/* Simulation Storyboard Stepper & Commentary */}
+        <SimulationStoryboard
+          isStoryActive={isStoryActive}
+          storyCountdown={storyCountdown}
+          isPaused={isStoryPaused}
+          onStartStory={handleStartStory}
+          onStopStory={handleStopStory}
+          onTogglePause={() => setIsStoryPaused(!isStoryPaused)}
+          onFastForward={handleFastForward}
+          hasCompletedStory={hasCompletedStory}
+        />
 
-          <IncidentList
-            incidents={incidents}
-            selectedId={selectedIncident?.id}
-            onSelect={(id) => setSelectedId(id)}
-            onInvestigate={handleInvestigate}
-            investigatingId={investigatingId}
-          />
-        </section>
-
-        {/* Right Column: Investigation & Telemetry */}
-        <section className="lg:col-span-8 space-y-6">
-          {loading ? (
-            <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
-              Connecting to DevOpsAI Observability Hub...
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Incident List Feed */}
+          <section className="lg:col-span-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-400">Live Incident Triage</span>
+              <button
+                onClick={() => {
+                  fetchIncidents()
+                  checkWatchdogHealth()
+                }}
+                className="p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
             </div>
-          ) : selectedIncident ? (
-            <>
-              {/* Telemetry Resource Inspector */}
-              <TelemetryViewer incident={selectedIncident} />
 
-              {/* RCA Investigation Report with 1-Click Remediation */}
-              <InvestigationReport 
-                incident={selectedIncident}
-                onOpenChat={() => setIsChatOpen(true)}
-                onRemediate={handleRemediate}
-                isRemediating={isRemediating}
-              />
-            </>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
-              No incidents selected.
-            </div>
-          )}
-        </section>
+            <IncidentList
+              incidents={incidents}
+              selectedId={selectedIncident?.id}
+              onSelect={(id) => setSelectedId(id)}
+              onInvestigate={handleInvestigate}
+              investigatingId={investigatingId}
+            />
+          </section>
+
+          {/* Right Column: Investigation & Telemetry */}
+          <section className="lg:col-span-8 space-y-6">
+            {loading ? (
+              <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
+                Connecting to DevOpsAI Observability Hub...
+              </div>
+            ) : selectedIncident ? (
+              <>
+                {/* Telemetry Resource Inspector */}
+                <TelemetryViewer incident={selectedIncident} />
+
+                {/* RCA Investigation Report with 1-Click Remediation */}
+                <InvestigationReport 
+                  incident={selectedIncident}
+                  onOpenChat={() => setIsChatOpen(true)}
+                  onRemediate={handleRemediate}
+                  isRemediating={isRemediating}
+                />
+              </>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
+                No incidents selected.
+              </div>
+            )}
+          </section>
+        </div>
       </main>
 
       {/* "Ask DevOpsAI" Copilot Drawer */}
