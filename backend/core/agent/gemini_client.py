@@ -50,3 +50,4 @@ class GeminiClient:
             print(f"[GeminiClient] Error calling Gemini: {e}")
 
         return None
+
