@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: devopsai-postgres
+    environment:
+      POSTGRES_DB: devopsai
+      POSTGRES_USER: devopsai
+      POSTGRES_PASSWORD: devopsaipassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devopsai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: devopsai-prometheus
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  sample-app:
+    build:
+      context: ./docker/sample_app
+    container_name: devopsai-sample-app
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+  backend:
+    build:
+      context: ./backend
+    container_name: devopsai-backend
+    environment:
+      - DEBUG=True
+      - PROMETHEUS_URL=http://prometheus:9090
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - ./knowledge_base:/knowledge_base
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: devopsai-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
