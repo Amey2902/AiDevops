@@ -78,3 +78,4 @@ class InMemoryVectorStore:
             self.chunks = data.get("chunks", [])
             self.embeddings = data.get("embeddings", [])
         return True
+

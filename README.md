@@ -148,3 +148,4 @@ DevOpsAI comes with three pre-configured failure scenarios that can be triggered
 - `POST /api/incidents/{id}/chat/` — Ask questions about an incident to DevOpsAI Copilot
 - `POST /api/simulation/trigger/` — Inject a chaos scenario and create an incident
 - `GET /api/knowledge/?q={query}` — Semantic search against SRE runbooks
+

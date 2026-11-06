@@ -40,3 +40,4 @@ Application microservices rely on relational databases (such as PostgreSQL) for 
 - Ensure all application database operations use context managers (`with db.transaction():`) to prevent orphan uncommitted transactions.
 - Set aggressive timeouts: `idle_in_transaction_session_timeout = '30s'` and `statement_timeout = '15s'`.
 - Review connection pooling configurations in application settings (e.g. `CONN_MAX_AGE`, `pool_size`).
+

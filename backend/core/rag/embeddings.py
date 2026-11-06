@@ -96,3 +96,4 @@ def get_default_embedding_provider() -> EmbeddingProvider:
         except Exception:
             pass
     return LocalSemanticEmbeddingProvider()
+

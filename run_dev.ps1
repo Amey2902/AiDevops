@@ -16,3 +16,4 @@ Write-Host "`nDevOpsAI is launching!" -ForegroundColor Green
 Write-Host "Frontend Dashboard: http://localhost:3000" -ForegroundColor White
 Write-Host "Backend API Hub:   http://127.0.0.1:8000/api/incidents/" -ForegroundColor White
 Write-Host "=================================================" -ForegroundColor Cyan
+

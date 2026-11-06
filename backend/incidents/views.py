@@ -7,6 +7,7 @@ from django.utils import timezone
 from .models import Incident, Investigation, EvidenceItem, RCAReport, IncidentStatus, IncidentSeverity
 from .serializers import IncidentSerializer, InvestigationSerializer, EvidenceItemSerializer, RCAReportSerializer
 from core.agent.investigator import SREInvestigator
+from core.agent.gemini_client import GeminiClient
 from core.telemetry.provider import get_telemetry_provider, SimulationTelemetryProvider
 from core.rag.knowledge_manager import get_knowledge_manager
 
@@ -38,43 +39,66 @@ class IncidentViewSet(viewsets.ModelViewSet):
         # Check RAG for relevant runbook context
         km = get_knowledge_manager()
         rag_hits = km.query(user_message, top_k=2)
-        rag_context = "\n".join([f"- {h['title']}: {h['content'][:200]}" for h in rag_hits])
+        rag_context = "\n".join([f"- {h['title']}: {h['content'][:300]}" for h in rag_hits])
 
-        # Generate intelligent contextual reply
-        response_text = ""
-        user_msg_lower = user_message.lower()
-        if "log" in user_msg_lower:
-            logs = get_telemetry_provider().get_logs(incident.service_name, limit=5)
-            log_lines = "\n".join([f"[{l['level']}] {l['timestamp'][:19]} - {l['message']}" for l in logs])
-            response_text = f"Here are the recent critical log lines observed around the incident window for `{incident.service_name}`:\n\n```\n{log_lines}\n```"
-        elif "metric" in user_msg_lower or "cpu" in user_msg_lower or "memory" in user_msg_lower or "ram" in user_msg_lower:
-            m_type = "memory" if "memory" in user_msg_lower or "ram" in user_msg_lower else "cpu"
-            metrics = get_telemetry_provider().get_metrics(incident.service_name, m_type)
-            response_text = (
-                f"Telemetry breakdown for **{m_type.upper()}** on `{incident.service_name}`:\n"
-                f"- Peak value: {max(metrics['values']) if metrics.get('values') else 'N/A'} {metrics.get('unit')}\n"
-                f"- Anomaly detected: {metrics.get('anomaly_detected')}\n"
-                f"- Observation: {metrics.get('anomaly_details', 'Operating within expected baseline.')}"
+        # Attempt to call Gemini API if key configured
+        gemini = GeminiClient()
+        gemini_response = None
+        if gemini.is_configured():
+            system_inst = (
+                "You are DevOpsAI SRE Copilot, an elite Site Reliability Engineer assistant. "
+                "Answer questions about this incident concisely using the provided telemetry facts and runbook context. "
+                "Always base recommendations on evidence and cite specific metrics or runbooks."
             )
-        elif "fix" in user_msg_lower or "action" in user_msg_lower or "remediat" in user_msg_lower:
-            if rca and rca.recommended_immediate_actions:
-                actions_list = "\n".join([f"{i+1}. {a}" for i, a in enumerate(rca.recommended_immediate_actions)])
-                response_text = f"Recommended immediate actions for `{incident.service_name}`:\n\n{actions_list}"
-            else:
-                response_text = "To remediate, review container memory and CPU ceilings, and verify database connection pool limits."
+            prompt = (
+                f"Incident Title: {incident.title}\n"
+                f"Service: {incident.service_name} (Severity: {incident.severity})\n"
+                f"Status: {incident.status}\n"
+                f"Root Cause (if known): {rca.root_cause_title if rca else 'Under investigation'}\n"
+                f"RCA Summary: {rca.root_cause_summary if rca else 'N/A'}\n\n"
+                f"Matched Runbook Guidance:\n{rag_context}\n\n"
+                f"User Question: {user_message}"
+            )
+            gemini_response = gemini.generate_text(prompt, system_instruction=system_inst)
+
+        if gemini_response:
+            response_text = gemini_response
         else:
-            if rca:
+            # Fallback to intelligent deterministic SRE reasoning
+            response_text = ""
+            user_msg_lower = user_message.lower()
+            if "log" in user_msg_lower:
+                logs = get_telemetry_provider().get_logs(incident.service_name, limit=5)
+                log_lines = "\n".join([f"[{l['level']}] {l['timestamp'][:19]} - {l['message']}" for l in logs])
+                response_text = f"Here are the recent critical log lines observed around the incident window for `{incident.service_name}`:\n\n```\n{log_lines}\n```"
+            elif "metric" in user_msg_lower or "cpu" in user_msg_lower or "memory" in user_msg_lower or "ram" in user_msg_lower:
+                m_type = "memory" if "memory" in user_msg_lower or "ram" in user_msg_lower else "cpu"
+                metrics = get_telemetry_provider().get_metrics(incident.service_name, m_type)
                 response_text = (
-                    f"**DevOpsAI Incident Analysis Summary**:\n\n"
-                    f"- **Probable Cause**: {rca.root_cause_title} ({int(rca.confidence_score * 100)}% confidence)\n"
-                    f"- **Details**: {rca.root_cause_summary}\n\n"
-                    f"Relevant Runbooks:\n{rag_context}"
+                    f"Telemetry breakdown for **{m_type.upper()}** on `{incident.service_name}`:\n"
+                    f"- Peak value: {max(metrics['values']) if metrics.get('values') else 'N/A'} {metrics.get('unit')}\n"
+                    f"- Anomaly detected: {metrics.get('anomaly_detected')}\n"
+                    f"- Observation: {metrics.get('anomaly_details', 'Operating within expected baseline.')}"
                 )
+            elif "fix" in user_msg_lower or "action" in user_msg_lower or "remediat" in user_msg_lower:
+                if rca and rca.recommended_immediate_actions:
+                    actions_list = "\n".join([f"{i+1}. {a}" for i, a in enumerate(rca.recommended_immediate_actions)])
+                    response_text = f"Recommended immediate actions for `{incident.service_name}`:\n\n{actions_list}"
+                else:
+                    response_text = "To remediate, review container memory and CPU ceilings, and verify database connection pool limits."
             else:
-                response_text = (
-                    f"Incident `{incident.title}` is currently in status `{incident.status}`. "
-                    "You can trigger an automated AI investigation to inspect metrics, logs, and container state."
-                )
+                if rca:
+                    response_text = (
+                        f"**DevOpsAI Incident Analysis Summary**:\n\n"
+                        f"- **Probable Cause**: {rca.root_cause_title} ({int(rca.confidence_score * 100)}% confidence)\n"
+                        f"- **Details**: {rca.root_cause_summary}\n\n"
+                        f"Relevant Runbooks:\n{rag_context}"
+                    )
+                else:
+                    response_text = (
+                        f"Incident `{incident.title}` is currently in status `{incident.status}`. "
+                        "You can trigger an automated AI investigation to inspect metrics, logs, and container state."
+                    )
 
         return Response({
             "message": response_text,

@@ -16,3 +16,4 @@ __all__ = [
     "PrometheusTelemetryProvider",
     "get_telemetry_provider"
 ]
+

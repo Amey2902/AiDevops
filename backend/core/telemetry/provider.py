@@ -321,3 +321,4 @@ def get_telemetry_provider(force_simulation: bool = True) -> TelemetryProvider:
         else:
             _GLOBAL_TELEMETRY_PROVIDER = PrometheusTelemetryProvider()
     return _GLOBAL_TELEMETRY_PROVIDER
+

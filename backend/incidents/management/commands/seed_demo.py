@@ -51,3 +51,4 @@ class Command(BaseCommand):
         self.stdout.write(f"Investigation completed: {inv2.rca_report.root_cause_title} ({int(inv2.rca_report.confidence_score * 100)}% confidence)")
 
         self.stdout.write(self.style.SUCCESS("Successfully seeded and investigated demo incidents!"))
+

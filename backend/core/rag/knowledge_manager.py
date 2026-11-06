@@ -92,3 +92,4 @@ def get_knowledge_manager() -> KnowledgeManager:
         _GLOBAL_KNOWLEDGE_MANAGER = KnowledgeManager()
         _GLOBAL_KNOWLEDGE_MANAGER.ingest_all()
     return _GLOBAL_KNOWLEDGE_MANAGER
+

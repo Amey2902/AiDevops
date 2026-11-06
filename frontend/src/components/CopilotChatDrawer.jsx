@@ -186,3 +186,4 @@ export default function CopilotChatDrawer({ isOpen, onClose, incident }) {
     </div>
   )
 }
+

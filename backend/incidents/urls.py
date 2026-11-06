@@ -10,3 +10,4 @@ urlpatterns = [
     path('simulation/trigger/', SimulationTriggerView.as_view(), name='simulation-trigger'),
     path('knowledge/', KnowledgeBaseView.as_view(), name='knowledge-base'),
 ]
+

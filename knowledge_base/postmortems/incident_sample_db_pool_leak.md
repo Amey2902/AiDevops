@@ -24,3 +24,4 @@ An unhandled exception in `record_audit_event()` caused the database session to 
 1. Enforce automated database connection teardown using context managers.
 2. Introduce PgBouncer connection pooler in front of PostgreSQL.
 3. Add alert for `pg_stat_activity` when connection utilization exceeds 80%.
+

@@ -77,3 +77,4 @@ class IncidentSerializer(serializers.ModelSerializer):
         if latest:
             return InvestigationSerializer(latest).data
         return None
+

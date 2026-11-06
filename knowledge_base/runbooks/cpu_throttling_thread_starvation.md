@@ -34,3 +34,4 @@ Containers running on Linux with CPU limits enforced by the Completely Fair Sche
 - Offload heavy compute tasks to asynchronous Celery/Redis background worker queues.
 - Optimize high-CPU hotspots identified in application profiling.
 - Separate latency-critical HTTP request handling from background batch operations.
+

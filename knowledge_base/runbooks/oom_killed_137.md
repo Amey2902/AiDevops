@@ -39,3 +39,4 @@ When a container exceeds its configured memory limit or when the host operating 
 - Profile application memory allocations to identify memory leaks (e.g. unclosed connections, unmanaged global caches, circular references).
 - Implement streaming/chunked processing for large file uploads or database bulk queries rather than buffering in-memory.
 - Configure runtime-specific memory boundaries (e.g. JVM `-Xmx`, Node.js `--max-old-space-size`) below the container cgroup limit to allow graceful logging before kernel kills.
+

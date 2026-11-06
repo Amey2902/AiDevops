@@ -64,3 +64,4 @@ export default function Navbar({ onOpenChaos, incidentCount = 0 }) {
     </header>
   )
 }
+

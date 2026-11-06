@@ -148,3 +148,4 @@ export default function ChaosModal({ isOpen, onClose, onTriggered }) {
     </div>
   )
 }
+
