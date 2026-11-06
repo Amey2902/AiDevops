@@ -45,6 +45,10 @@ class Incident(models.Model):
     class Meta:
         ordering = ["-triggered_at"]
 
+    @property
+    def active_investigation(self):
+        return self.investigations.order_by("-started_at").first()
+
     def __str__(self):
         return f"[{self.severity}] {self.service_name} - {self.title}"
 

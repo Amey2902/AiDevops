@@ -53,6 +53,7 @@ class InvestigationSerializer(serializers.ModelSerializer):
 class IncidentSerializer(serializers.ModelSerializer):
     investigations = InvestigationSerializer(many=True, read_only=True)
     active_investigation = serializers.SerializerMethodField()
+    raw_logs = serializers.SerializerMethodField()
 
     class Meta:
         model = Incident
@@ -70,6 +71,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "updated_at",
             "active_investigation",
             "investigations",
+            "raw_logs",
         ]
 
     def get_active_investigation(self, obj):
@@ -77,4 +79,12 @@ class IncidentSerializer(serializers.ModelSerializer):
         if latest:
             return InvestigationSerializer(latest).data
         return None
+
+    def get_raw_logs(self, obj):
+        latest = obj.investigations.first()
+        if latest:
+            log_item = latest.evidence_items.filter(source_type="LOGS").first()
+            if log_item and "logs" in log_item.raw_data:
+                return log_item.raw_data["logs"]
+        return []
 

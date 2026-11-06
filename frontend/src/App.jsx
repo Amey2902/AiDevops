@@ -7,7 +7,8 @@ import CopilotChatDrawer from './components/CopilotChatDrawer'
 import ChaosModal from './components/ChaosModal'
 import AlertToast from './components/AlertToast'
 import SimulationStoryboard from './components/SimulationStoryboard'
-import { RefreshCw } from 'lucide-react'
+import TopologyMap from './components/TopologyMap'
+import { RefreshCw, Network, ChevronDown, ChevronUp } from 'lucide-react'
 
 export default function App() {
   const [incidents, setIncidents] = useState([])
@@ -20,7 +21,7 @@ export default function App() {
   // Real-time Watchdog & Alert Toast States
   const [watchdogStatus, setWatchdogStatus] = useState('healthy')
   const [lastProbeSeconds, setLastProbeSeconds] = useState(0)
-  const [pollInterval, setPollInterval] = useState(15)
+  const [pollInterval, setPollInterval] = useState(5)
   const [activeAlert, setActiveAlert] = useState(null)
   const [isRemediating, setIsRemediating] = useState(false)
 
@@ -29,6 +30,10 @@ export default function App() {
   const [storyCountdown, setStoryCountdown] = useState(25)
   const [isStoryPaused, setIsStoryPaused] = useState(false)
   const [hasCompletedStory, setHasCompletedStory] = useState(false)
+  
+  // Live Topology Map State
+  const [showTopology, setShowTopology] = useState(true)
+  const [selectedService, setSelectedService] = useState(null)
   
   const knownIncidentIds = useRef(new Set())
 
@@ -43,6 +48,7 @@ export default function App() {
           const newest = data[0]
           if (!knownIncidentIds.current.has(newest.id) && newest.status !== 'RESOLVED') {
             setActiveAlert(newest)
+            setSelectedId(newest.id) // Automatically select newly triggered attack
           }
         }
 
@@ -329,6 +335,34 @@ export default function App() {
           onFastForward={handleFastForward}
           hasCompletedStory={hasCompletedStory}
         />
+
+        {/* Live Microservice Topology Map */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <button
+              onClick={() => setShowTopology(!showTopology)}
+              className="flex items-center space-x-2 text-xs font-bold text-slate-300 hover:text-white transition-colors bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-800"
+            >
+              <Network className="w-4 h-4 text-blue-400" />
+              <span>Cluster Topology & Dependency Architecture</span>
+              {showTopology ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+            </button>
+            <span className="text-[11px] font-mono text-slate-500">
+              Interactive Microservice Service Map
+            </span>
+          </div>
+
+          {showTopology && (
+            <TopologyMap
+              selectedService={selectedService}
+              onSelectService={(svcName) => {
+                setSelectedService(svcName)
+                const matching = incidents.find(i => i.service_name === svcName)
+                if (matching) setSelectedId(matching.id)
+              }}
+            />
+          )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Incident List Feed */}

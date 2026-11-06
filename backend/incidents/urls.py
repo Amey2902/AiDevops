@@ -6,7 +6,8 @@ from .views import (
     KnowledgeBaseView, 
     AlertWebhookView, 
     SystemHealthWatchdogView,
-    SeedClusterView
+    SeedClusterView,
+    TopologyGraphView
 )
 
 router = DefaultRouter()
@@ -19,5 +20,6 @@ urlpatterns = [
     path('knowledge/', KnowledgeBaseView.as_view(), name='knowledge-base'),
     path('webhook/', AlertWebhookView.as_view(), name='alert-webhook'),
     path('health/watchdog/', SystemHealthWatchdogView.as_view(), name='health-watchdog'),
+    path('topology/', TopologyGraphView.as_view(), name='topology-graph'),
 ]
 

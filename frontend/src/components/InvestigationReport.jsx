@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Loader2
 } from 'lucide-react'
+import CodePatchViewer from './CodePatchViewer'
 
 export default function InvestigationReport({ incident, onOpenChat, onRemediate, isRemediating = false }) {
   const [completedSteps, setCompletedSteps] = useState({})
@@ -150,6 +151,12 @@ export default function InvestigationReport({ incident, onOpenChat, onRemediate,
         </div>
       </div>
 
+      {/* AI Proposed Code Remediation & Human Code Review */}
+      <CodePatchViewer 
+        incident={incident} 
+        rca={rca} 
+      />
+
       {/* Recommended Action Checklist */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Immediate Mitigation (Human-in-the-Loop SRE Recommendations) */}
@@ -194,31 +201,34 @@ export default function InvestigationReport({ incident, onOpenChat, onRemediate,
             </div>
           </div>
 
-          {/* 1-Click Human Approval CTA */}
-          {incident.status !== 'RESOLVED' ? (
-            <button
-              onClick={() => onRemediate && onRemediate(incident.id, rca.recommended_immediate_actions?.[0] || 'Apply SRE Remediation')}
-              disabled={isRemediating}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {isRemediating ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Recording Approval...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Human Approval: Confirm & Resolve Incident</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center text-xs text-emerald-300 flex items-center justify-center space-x-1.5 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Remediation approved by engineer. Baseline restored.</span>
-            </div>
-          )}
+          {/* Actions: Human Approval & Remediation Execution */}
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            {/* 1-Click Human Approval CTA */}
+            {incident.status !== 'RESOLVED' ? (
+              <button
+                onClick={() => onRemediate && onRemediate(incident.id, rca.recommended_immediate_actions?.[0] || 'Apply SRE Remediation')}
+                disabled={isRemediating}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isRemediating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Recording Approval...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Human Approval: Confirm & Resolve</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="w-full p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center text-xs text-emerald-300 flex items-center justify-center space-x-1.5 font-medium">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Remediation approved by engineer. Baseline restored.</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Preventative Long-term Fixes */}

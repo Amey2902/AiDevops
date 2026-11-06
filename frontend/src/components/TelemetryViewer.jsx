@@ -11,7 +11,9 @@ export default function TelemetryViewer({ incident }) {
   const evidenceItems = incident.active_investigation?.evidence_items || []
   const metricItems = evidenceItems.filter(e => e.source_type === 'METRICS')
   const logItem = evidenceItems.find(e => e.source_type === 'LOGS')
-  const logs = logItem?.raw_data?.logs || []
+  const logs = (incident.raw_logs && incident.raw_logs.length > 0)
+    ? incident.raw_logs
+    : (logItem?.raw_data?.logs || [])
 
   // Fallback metric if no metrics in evidence
   const fallbackMetric = {
@@ -218,33 +220,42 @@ export default function TelemetryViewer({ incident }) {
             )}
           </div>
         ) : (
-          <div className="space-y-2 font-mono text-xs max-h-56 overflow-y-auto">
+          <div className="space-y-2.5 font-mono text-xs max-h-64 overflow-y-auto">
             {logs.length === 0 ? (
-              <p className="text-slate-500 text-center py-4">No error logs captured in telemetry window.</p>
+              <p className="text-slate-500 text-center py-4 font-sans text-xs">No error logs captured in telemetry window.</p>
             ) : (
               logs.map((log, idx) => {
                 const isFatal = log.level === 'FATAL'
                 const isError = log.level === 'ERROR'
                 const isWarn = log.level === 'WARN'
+                const timeStr = log.timestamp 
+                  ? (log.timestamp.includes('T') ? log.timestamp.split('T')[1].substring(0, 8) : log.timestamp) 
+                  : '14:24:00'
 
                 return (
                   <div 
                     key={idx} 
-                    className="p-2 rounded bg-slate-950/80 border border-slate-800/80 flex items-start space-x-2 leading-relaxed"
+                    className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 flex flex-col space-y-1.5 leading-relaxed shadow-sm"
                   >
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      isFatal ? 'bg-rose-500 text-white' :
-                      isError ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                      isWarn ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {log.level}
-                    </span>
-                    <span className="text-slate-500 text-[11px] shrink-0">
-                      {log.timestamp ? log.timestamp.substring(11, 19) : '14:24:00'}
-                    </span>
-                    <span className="text-slate-300 break-all">
+                    <div className="flex items-center space-x-2 pb-1 border-b border-slate-900 text-[11px]">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        isFatal ? 'bg-rose-500 text-white' :
+                        isError ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                        isWarn ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {log.level}
+                      </span>
+                      <span className="text-slate-500 font-mono">
+                        {timeStr}
+                      </span>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-400 font-mono text-[10px]">
+                        {incident.service_name}
+                      </span>
+                    </div>
+                    <pre className="text-slate-200 whitespace-pre-wrap font-mono text-xs overflow-x-auto select-text pt-0.5">
                       {log.message}
-                    </span>
+                    </pre>
                   </div>
                 )
               })

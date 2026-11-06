@@ -1,0 +1,2 @@
+# Zero external dependencies required!
+# chaos_lab/app.py runs directly using Python's built-in standard library (http.server & urllib).
