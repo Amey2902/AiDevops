@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 from .chunker import MarkdownChunker
 from .embeddings import get_default_embedding_provider, EmbeddingProvider
 from .vector_store import InMemoryVectorStore
+from .supabase_vector_store import SupabaseVectorStore
 
 class KnowledgeManager:
     """
@@ -23,6 +24,7 @@ class KnowledgeManager:
         self.embedding_provider = embedding_provider or get_default_embedding_provider()
         self.chunker = MarkdownChunker()
         self.vector_store = InMemoryVectorStore()
+        self.supabase_store = SupabaseVectorStore()
         self.indexed_files: List[str] = []
         self._is_indexed = False
 
@@ -65,11 +67,22 @@ class KnowledgeManager:
         return len(all_chunks)
 
     def query(self, query_text: str, top_k: int = 3, score_threshold: float = 0.0) -> List[Dict[str, Any]]:
-        """Perform semantic search against indexed runbooks and incident docs."""
+        """Perform semantic search against indexed runbooks and incident docs (Supabase + In-Memory fallback)."""
         if not self._is_indexed:
             self.ingest_all()
 
         q_vec = self.embedding_provider.embed_query(query_text)
+
+        # Attempt Supabase cloud vector search if available
+        if self.supabase_store.is_configured():
+            try:
+                supa_results = self.supabase_store.semantic_search(q_vec, top_k=top_k)
+                if supa_results:
+                    return supa_results
+            except Exception as e:
+                print(f"[KnowledgeManager] Supabase query fallback: {e}")
+
+        # In-memory vector fallback
         return self.vector_store.similarity_search(q_vec, top_k=top_k, score_threshold=score_threshold)
 
     def get_stats(self) -> Dict[str, Any]:
