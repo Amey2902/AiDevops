@@ -12,11 +12,15 @@ import {
   ArrowRight,
   Clock,
   Layers,
-  MessageSquare
+  MessageSquare,
+  Wrench,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react'
 
-export default function InvestigationReport({ incident, onOpenChat }) {
+export default function InvestigationReport({ incident, onOpenChat, onRemediate, isRemediating = false }) {
   const [completedSteps, setCompletedSteps] = useState({})
+  const [remediationSuccessMsg, setRemediationSuccessMsg] = useState('')
 
   if (!incident) {
     return (
@@ -149,35 +153,71 @@ export default function InvestigationReport({ incident, onOpenChat }) {
       {/* Recommended Action Checklist */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Immediate Mitigation */}
-        <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center space-x-2 mb-3">
-            <CheckSquare className="w-3.5 h-3.5" />
-            <span>Immediate Mitigation Actions</span>
-          </h3>
+        <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center space-x-2">
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>Immediate Mitigation Actions</span>
+              </h3>
+              {incident.status === 'RESOLVED' && (
+                <span className="flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>RESOLVED</span>
+                </span>
+              )}
+            </div>
 
-          <div className="space-y-2.5">
-            {(rca.recommended_immediate_actions || []).map((action, idx) => {
-              const isChecked = !!completedSteps[`imm_${idx}`]
-              return (
-                <div 
-                  key={idx}
-                  onClick={() => toggleCheck(`imm_${idx}`)}
-                  className={`flex items-start space-x-2.5 p-2 rounded-lg cursor-pointer text-xs transition-colors ${
-                    isChecked 
-                      ? 'bg-emerald-500/5 text-slate-400 line-through' 
-                      : 'hover:bg-slate-800/60 text-slate-200'
-                  }`}
-                >
-                  {isChecked ? (
-                    <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <Square className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                  )}
-                  <span className="leading-relaxed">{action}</span>
-                </div>
-              )
-            })}
+            <div className="space-y-2.5 mb-4">
+              {(rca.recommended_immediate_actions || []).map((action, idx) => {
+                const isChecked = !!completedSteps[`imm_${idx}`] || incident.status === 'RESOLVED'
+                return (
+                  <div 
+                    key={idx}
+                    onClick={() => toggleCheck(`imm_${idx}`)}
+                    className={`flex items-start space-x-2.5 p-2 rounded-lg cursor-pointer text-xs transition-colors ${
+                      isChecked 
+                        ? 'bg-emerald-500/5 text-slate-400 line-through' 
+                        : 'hover:bg-slate-800/60 text-slate-200'
+                    }`}
+                  >
+                    {isChecked ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                    )}
+                    <span className="leading-relaxed">{action}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
+
+          {/* 1-Click Remediation CTA */}
+          {incident.status !== 'RESOLVED' ? (
+            <button
+              onClick={() => onRemediate && onRemediate(incident.id, rca.recommended_immediate_actions?.[0] || 'Apply SRE Remediation')}
+              disabled={isRemediating}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {isRemediating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Executing Remediation...</span>
+                </>
+              ) : (
+                <>
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>Execute Automated Remediation</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center text-xs text-emerald-300 flex items-center justify-center space-x-1.5 font-medium">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Remediation applied. Health baseline restored.</span>
+            </div>
+          )}
         </div>
 
         {/* Preventative Long-term Fixes */}

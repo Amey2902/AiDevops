@@ -1,7 +1,25 @@
 import React from 'react'
 import { Activity, ShieldAlert, Sparkles, BookOpen, Flame } from 'lucide-react'
 
-export default function Navbar({ onOpenChaos, incidentCount = 0 }) {
+export default function Navbar({ 
+  onOpenChaos, 
+  incidentCount = 0,
+  watchdogStatus = 'healthy',
+  lastProbeSeconds = 0,
+  pollInterval = 15,
+  onChangePollInterval
+}) {
+  const getWatchdogColor = () => {
+    if (watchdogStatus === 'critical') return 'text-rose-400 bg-rose-500/20 border-rose-500/30'
+    if (watchdogStatus === 'warning') return 'text-amber-400 bg-amber-500/20 border-amber-500/30'
+    return 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30'
+  }
+
+  const getWatchdogDot = () => {
+    if (watchdogStatus === 'critical') return 'bg-rose-500'
+    if (watchdogStatus === 'warning') return 'bg-amber-500'
+    return 'bg-emerald-500'
+  }
   return (
     <header className="border-b border-slate-800 bg-[#0B0F19]/90 backdrop-blur sticky top-0 z-40 px-6 py-3.5">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
@@ -29,8 +47,35 @@ export default function Navbar({ onOpenChaos, incidentCount = 0 }) {
           </div>
         </div>
 
-        {/* Live Metrics Telemetry Strip */}
-        <div className="hidden md:flex items-center space-x-6 text-xs text-slate-400">
+        {/* Live Metrics & Watchdog Telemetry Strip */}
+        <div className="hidden lg:flex items-center space-x-4 text-xs text-slate-400">
+          {/* Live Watchdog Heartbeat Badge */}
+          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border transition-all ${getWatchdogColor()}`}>
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${getWatchdogDot()}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${getWatchdogDot()}`}></span>
+            </span>
+            <span className="font-semibold capitalize">
+              {watchdogStatus === 'critical' ? 'Anomaly Active' : watchdogStatus === 'warning' ? 'Degraded' : 'All Systems Nominal'}
+            </span>
+            <span className="text-[10px] opacity-70">({lastProbeSeconds}s ago)</span>
+          </div>
+
+          {/* Polling Interval Selector */}
+          <div className="flex items-center space-x-1.5 bg-slate-900/60 px-2.5 py-1.5 rounded-lg border border-slate-800 text-[11px]">
+            <span className="text-slate-500">Probe:</span>
+            <select
+              value={pollInterval}
+              onChange={(e) => onChangePollInterval && onChangePollInterval(Number(e.target.value))}
+              className="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer"
+            >
+              <option value={10} className="bg-slate-900">Every 10s</option>
+              <option value={15} className="bg-slate-900">Every 15s</option>
+              <option value={30} className="bg-slate-900">Every 30s</option>
+              <option value={60} className="bg-slate-900">Every 60s</option>
+            </select>
+          </div>
+
           <div className="flex items-center space-x-2 bg-slate-900/60 px-3 py-1.5 rounded-md border border-slate-800">
             <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
             <span>Incidents:</span>
@@ -38,15 +83,9 @@ export default function Navbar({ onOpenChaos, incidentCount = 0 }) {
           </div>
 
           <div className="flex items-center space-x-2 bg-slate-900/60 px-3 py-1.5 rounded-md border border-slate-800">
-            <Activity className="w-3.5 h-3.5 text-blue-400" />
-            <span>Avg MTTI:</span>
-            <span className="font-semibold text-emerald-400">38s</span>
-          </div>
-
-          <div className="flex items-center space-x-2 bg-slate-900/60 px-3 py-1.5 rounded-md border border-slate-800">
             <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-            <span>RAG Runbooks:</span>
-            <span className="font-semibold text-white">4 Indexed</span>
+            <span>Supabase RAG:</span>
+            <span className="font-semibold text-emerald-400">pgvector Live</span>
           </div>
         </div>
 

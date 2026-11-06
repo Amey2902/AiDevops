@@ -82,3 +82,4 @@ class SupabaseVectorStore:
             print(f"[SupabaseVectorStore] Error querying Supabase RPC: {e}")
 
         return []
+

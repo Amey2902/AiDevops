@@ -32,3 +32,4 @@ class Command(BaseCommand):
                 self.stdout.write(f" - [{r.get('similarity_score')}] {r.get('title')}")
         else:
             self.stdout.write(self.style.WARNING("Upload returned 0. Ensure table 'runbook_embeddings' is created in Supabase."))
+
