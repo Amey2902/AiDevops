@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, ShieldAlert, Sparkles, BookOpen, Flame } from 'lucide-react'
+import { Activity, ShieldAlert, Sparkles, BookOpen, Flame, Play, Square, Timer } from 'lucide-react'
 
 export default function Navbar({ 
   onOpenChaos, 
@@ -7,7 +7,11 @@ export default function Navbar({
   watchdogStatus = 'healthy',
   lastProbeSeconds = 0,
   pollInterval = 15,
-  onChangePollInterval
+  onChangePollInterval,
+  isStoryActive = false,
+  storyCountdown = 25,
+  onStartStory,
+  onStopStory
 }) {
   const getWatchdogColor = () => {
     if (watchdogStatus === 'critical') return 'text-rose-400 bg-rose-500/20 border-rose-500/30'
@@ -89,8 +93,32 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="flex items-center space-x-3">
+        {/* Action Buttons */}
+        <div className="flex items-center space-x-2.5">
+          {/* Live Story Demo Launcher */}
+          {isStoryActive ? (
+            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold animate-pulse">
+              <Timer className="w-3.5 h-3.5" />
+              <span>Normal Traffic: Outage in {storyCountdown}s</span>
+              <button 
+                onClick={onStopStory}
+                className="ml-1 p-0.5 rounded bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200"
+                title="Cancel Demo"
+              >
+                <Square className="w-3 h-3 fill-current" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onStartStory}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition-all shadow-sm"
+              title="Runs 25s of normal traffic, then triggers a live incident"
+            >
+              <Play className="w-3 h-3 fill-current text-indigo-400" />
+              <span>Live 25s Demo</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenChaos}
             className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-rose-500/20 to-amber-500/20 hover:from-rose-500/30 hover:to-amber-500/30 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all shadow-sm"

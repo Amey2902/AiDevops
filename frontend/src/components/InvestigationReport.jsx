@@ -152,21 +152,22 @@ export default function InvestigationReport({ incident, onOpenChat, onRemediate,
 
       {/* Recommended Action Checklist */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Immediate Mitigation */}
+        {/* Immediate Mitigation (Human-in-the-Loop SRE Recommendations) */}
         <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center space-x-2">
                 <CheckSquare className="w-3.5 h-3.5" />
                 <span>Immediate Mitigation Actions</span>
               </h3>
-              {incident.status === 'RESOLVED' && (
-                <span className="flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>RESOLVED</span>
-                </span>
-              )}
+              <span className="flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                <span>🔒 Read-Only AI Advisory</span>
+              </span>
             </div>
+            
+            <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
+              AI guardrails enforce read-only safety to prevent code tearing or data loss. Review the suggested actions below before human approval:
+            </p>
 
             <div className="space-y-2.5 mb-4">
               {(rca.recommended_immediate_actions || []).map((action, idx) => {
@@ -193,7 +194,7 @@ export default function InvestigationReport({ incident, onOpenChat, onRemediate,
             </div>
           </div>
 
-          {/* 1-Click Remediation CTA */}
+          {/* 1-Click Human Approval CTA */}
           {incident.status !== 'RESOLVED' ? (
             <button
               onClick={() => onRemediate && onRemediate(incident.id, rca.recommended_immediate_actions?.[0] || 'Apply SRE Remediation')}
@@ -203,19 +204,19 @@ export default function InvestigationReport({ incident, onOpenChat, onRemediate,
               {isRemediating ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Executing Remediation...</span>
+                  <span>Recording Approval...</span>
                 </>
               ) : (
                 <>
-                  <Wrench className="w-3.5 h-3.5" />
-                  <span>Execute Automated Remediation</span>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Human Approval: Confirm & Resolve Incident</span>
                 </>
               )}
             </button>
           ) : (
             <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center text-xs text-emerald-300 flex items-center justify-center space-x-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Remediation applied. Health baseline restored.</span>
+              <span>Remediation approved by engineer. Baseline restored.</span>
             </div>
           )}
         </div>

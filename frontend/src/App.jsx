@@ -22,6 +22,10 @@ export default function App() {
   const [pollInterval, setPollInterval] = useState(15)
   const [activeAlert, setActiveAlert] = useState(null)
   const [isRemediating, setIsRemediating] = useState(false)
+
+  // Live 25-Second Storyboard Demo Mode
+  const [isStoryActive, setIsStoryActive] = useState(false)
+  const [storyCountdown, setStoryCountdown] = useState(25)
   
   const knownIncidentIds = useRef(new Set())
 
@@ -94,6 +98,55 @@ export default function App() {
     }
   }, [pollInterval])
 
+  // Live 25-Second Storyboard Demo Countdown
+  useEffect(() => {
+    let timer = null
+    if (isStoryActive) {
+      if (storyCountdown > 0) {
+        timer = setTimeout(() => {
+          setStoryCountdown(prev => prev - 1)
+        }, 1000)
+      } else {
+        setIsStoryActive(false)
+        triggerChaosStrike()
+      }
+    }
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [isStoryActive, storyCountdown])
+
+  const triggerChaosStrike = async () => {
+    try {
+      const res = await fetch('/api/simulation/trigger/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: 'oom_memory_leak', auto_investigate: true })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        await fetchIncidents(true)
+        if (data.incident) {
+          setSelectedId(data.incident.id)
+          setActiveAlert(data.incident)
+        }
+        setWatchdogStatus('critical')
+      }
+    } catch (err) {
+      console.error('Error triggering chaos strike:', err)
+    }
+  }
+
+  const handleStartStory = () => {
+    setStoryCountdown(25)
+    setIsStoryActive(true)
+    setWatchdogStatus('healthy')
+  }
+
+  const handleStopStory = () => {
+    setIsStoryActive(false)
+  }
+
   const handleInvestigate = async (id) => {
     setInvestigatingId(id)
     try {
@@ -138,7 +191,103 @@ export default function App() {
     }
   }
 
-  const selectedIncident = incidents.find(i => i.id === selectedId) || incidents[0]
+  // Active Incident Resolver (supports Live Story Dynamic Evolution)
+  const getActiveDisplayIncident = () => {
+    if (isStoryActive) {
+      const elapsed = 25 - storyCountdown
+      const now = new Date()
+      
+      let values = [110, 115, 118, 122, 120]
+      let anomaly = false
+      let anomalyDetails = null
+      let logs = [
+        { timestamp: new Date(now.getTime() - 12000).toISOString(), level: 'INFO', message: 'Traffic normal: 240 req/sec on /api/v1/checkout (status 200 OK)' },
+        { timestamp: new Date(now.getTime() - 8000).toISOString(), level: 'INFO', message: 'Health probe /healthz responded in 12ms (status healthy)' },
+        { timestamp: new Date(now.getTime() - 3000).toISOString(), level: 'INFO', message: 'Worker pool active connections: 14/100, memory usage nominal (120MB)' }
+      ]
+
+      if (elapsed > 10 && elapsed <= 20) {
+        values = [120, 140, 220, 310, 420, 460]
+        anomaly = true
+        anomalyDetails = `Warning: Memory allocation climbing rapidly (${values[values.length - 1]}MB / 512MB)`
+        logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'WARN',
+          message: 'Memory heap utilization exceeded 85% threshold (435MB/512MB).'
+        })
+        logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'WARN',
+          message: 'Garbage collection pause 1820ms (> pause target).'
+        })
+      } else if (elapsed > 20) {
+        values = [120, 140, 220, 310, 420, 512, 120]
+        anomaly = true
+        anomalyDetails = 'CRITICAL: Container memory hit 512MB ceiling. Linux kernel OOM Killer invoked SIGKILL (Exit code 137).'
+        logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'ERROR',
+          message: 'MemoryError: Unable to allocate 32.0 MiB buffer for batch transaction.'
+        })
+        logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'FATAL',
+          message: 'Process terminated by SIGKILL (Signal 9 / Exit Code 137). Linux OOM Killer invoked.'
+        })
+      }
+
+      return {
+        id: 'live-story-demo',
+        service_name: 'checkout-api',
+        title: elapsed < 20 ? 'Live Monitored Session: checkout-api (Traffic Baseline)' : 'Container Crash Loop & Linux OOMKiller (Exit 137)',
+        severity: elapsed < 12 ? 'P4_LOW' : (elapsed < 20 ? 'P2_HIGH' : 'P1_CRITICAL'),
+        status: elapsed < 20 ? 'INVESTIGATING' : 'IDENTIFIED',
+        active_investigation: {
+          evidence_items: [
+            {
+              source_type: 'METRICS',
+              raw_data: {
+                metric: 'container_memory_working_set_bytes_mb',
+                unit: 'MB',
+                limit_mb: 512,
+                values: values,
+                timestamps: values.map((_, i) => `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String((now.getSeconds() + i * 4) % 60).padStart(2, '0')}`),
+                anomaly_detected: anomaly,
+                anomaly_details: anomalyDetails
+              }
+            },
+            {
+              source_type: 'LOGS',
+              raw_data: {
+                logs: logs
+              }
+            }
+          ],
+          rca_report: elapsed > 20 ? {
+            root_cause_title: 'Uncontrolled Memory Leak Causing Linux OOMKilled Termination (Exit Code 137)',
+            root_cause_summary: 'Service checkout-api exceeded its allotted container memory ceiling (512MB). Memory consumption climbed steadily without deallocation until the Linux kernel Out-Of-Memory Killer issued SIGKILL (Exit code 137).',
+            confidence_score: 0.96,
+            recommended_immediate_actions: [
+              'Increase container memory limit from 512MB to 1024MB in docker-compose.yml.',
+              'Restart container instance to reclaim leaked heap memory.',
+              'Verify memory working set stabilizes below 50% post-restart.'
+            ],
+            recommended_preventative_actions: [
+              'Profile application heap allocations to identify uncollected object references.',
+              'Implement streaming response processing for batch/bulk export endpoints.'
+            ],
+            cited_runbooks: [
+              { title: 'Oom Killed 137 > Runbook: Investigating Container OOMKilled', similarity_score: 0.86, excerpt: 'When a container exceeds its configured memory limit...' }
+            ]
+          } : null
+        }
+      }
+    }
+
+    return incidents.find(i => i.id === selectedId) || incidents[0]
+  }
+
+  const selectedIncident = getActiveDisplayIncident()
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">
@@ -150,6 +299,10 @@ export default function App() {
         lastProbeSeconds={lastProbeSeconds}
         pollInterval={pollInterval}
         onChangePollInterval={(val) => setPollInterval(val)}
+        isStoryActive={isStoryActive}
+        storyCountdown={storyCountdown}
+        onStartStory={handleStartStory}
+        onStopStory={handleStopStory}
       />
 
       {/* Main Workspace */}
