@@ -113,11 +113,12 @@ class SREInvestigator:
         if real_telemetry and real_telemetry.get("metrics"):
             metric_data = real_telemetry["metrics"]
             anomaly_metrics.append(metric_data)
+            metric_name = metric_data.get("metric") or "Live Container Telemetry"
             evidence_collected.append(EvidenceItem.objects.create(
                 investigation=investigation,
                 source_type=EvidenceSourceType.METRICS,
-                title=f"Real Metric Anomaly: {metric_data.get('metric')}",
-                description=metric_data.get("anomaly_details", f"Surge observed in {metric_data.get('metric')}."),
+                title=f"Real Metric Anomaly: {metric_name}",
+                description=metric_data.get("anomaly_details", f"Live telemetry captured: {metric_data}"),
                 raw_data=metric_data,
                 confidence_impact=0.88
             ))
@@ -313,7 +314,42 @@ Return a strictly valid JSON object matching this schema (no markdown, no backti
                 "Configure exponential backoff and jitter on Redis connection retries."
             ]
 
-        elif (container_state.get("oom_killed") or container_state.get("exit_code") == 137) or ("oom" in alert_text or "memory" in alert_text):
+        elif "connection" in alert_text or "postgres" in alert_text or "pool" in alert_text or any("connection" in str(l).lower() for l in error_logs) or any("psycopg2" in str(l).lower() for l in error_logs):
+            title = "PostgreSQL Database Connection Pool Exhaustion & Worker Starvation"
+            summary = (
+                f"The database connection pool for '{incident.service_name}' reached maximum capacity (100/100 connections). "
+                "Incoming API transactions were unable to acquire a database socket and timed out after 30 seconds, "
+                "causing cascading HTTP 500/503 errors across client-facing endpoints."
+            )
+            confidence = 0.93
+            immediate = [
+                "Terminate stuck 'idle in transaction' connections on PostgreSQL via pg_terminate_backend().",
+                "Restart saturated worker replicas to release orphaned client sockets.",
+                "Temporarily raise max_connections if PostgreSQL server RAM permits."
+            ]
+            preventative = [
+                "Deploy PgBouncer connection pooler in transaction pooling mode.",
+                "Enforce strict idle_in_transaction_session_timeout = '30s' in PostgreSQL config.",
+                "Audit codebase to ensure all DB sessions utilize context managers (with transaction.atomic():)."
+            ]
+
+        elif "cpu" in alert_text or "throttl" in alert_text:
+            title = "CFS CPU Quota Throttling Causing Thread Pool Starvation and Timeout Cascade"
+            summary = (
+                f"Container for '{incident.service_name}' was throttled in over 70% of CFS scheduling periods "
+                "due to high computational bursts exceeding the assigned CPU core limit, leading to liveness probe timeout."
+            )
+            confidence = 0.94
+            immediate = [
+                "Increase container CPU limit from 0.5 to 2.0 cores in deployment manifests.",
+                "Scale out replica count to distribute compute workloads."
+            ]
+            preventative = [
+                "Offload heavy synchronous CPU computations to Celery/background workers.",
+                "Tune liveness/readiness probe timeout parameters to avoid premature pod restarts during traffic spikes."
+            ]
+
+        elif ("oom" in alert_text or "memory" in alert_text) or container_state.get("oom_killed") or (container_state.get("exit_code") == 137):
             title = "Uncontrolled Memory Leak Causing Linux OOMKilled Termination (Exit Code 137)"
             summary = (
                 f"The service '{incident.service_name}' exceeded its allotted container memory ceiling "
@@ -331,41 +367,6 @@ Return a strictly valid JSON object matching this schema (no markdown, no backti
                 "Profile application heap allocations to identify uncollected object references.",
                 "Implement streaming response processing for batch/bulk export endpoints.",
                 "Configure Prometheus alert for container_memory_working_set_bytes exceeding 85% limit."
-            ]
-
-        elif "cpu" in alert_text or "throttl" in alert_text or any("throttling" in str(m).lower() for m in anomaly_metrics):
-            title = "CFS CPU Quota Throttling Causing Thread Pool Starvation and Timeout Cascade"
-            summary = (
-                f"Container for '{incident.service_name}' was throttled in over 70% of CFS scheduling periods "
-                "due to high computational bursts exceeding the assigned CPU core limit, leading to liveness probe timeout."
-            )
-            confidence = 0.94
-            immediate = [
-                "Increase container CPU limit from 0.5 to 2.0 cores in deployment manifests.",
-                "Scale out replica count to distribute compute workloads."
-            ]
-            preventative = [
-                "Offload heavy synchronous CPU computations to Celery/background workers.",
-                "Tune liveness/readiness probe timeout parameters to avoid premature pod restarts during traffic spikes."
-            ]
-
-        elif any("connection" in str(m).lower() for m in anomaly_metrics) or any("connection" in str(l).lower() for l in error_logs):
-            title = "PostgreSQL Database Connection Pool Exhaustion & Worker Starvation"
-            summary = (
-                f"The database connection pool for '{incident.service_name}' reached maximum capacity (100/100 connections). "
-                "Incoming API transactions were unable to acquire a database socket and timed out after 30 seconds, "
-                "causing cascading HTTP 500/503 errors across client-facing endpoints."
-            )
-            confidence = 0.93
-            immediate = [
-                "Terminate stuck 'idle in transaction' connections on PostgreSQL via pg_terminate_backend().",
-                "Restart saturated worker replicas to release orphaned client sockets.",
-                "Temporarily raise max_connections if PostgreSQL server RAM permits."
-            ]
-            preventative = [
-                "Deploy PgBouncer connection pooler in transaction pooling mode.",
-                "Enforce strict idle_in_transaction_session_timeout = '30s' in PostgreSQL config.",
-                "Audit codebase to ensure all DB sessions utilize context managers (with transaction.atomic():)."
             ]
 
         elif any("throttling" in str(m).lower() for m in anomaly_metrics):

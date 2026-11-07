@@ -70,7 +70,7 @@ gc.collect()  # Immediately reclaim unreferenced heap memory (<128MB ceiling)`,
     }
   }
 
-  if (combined.includes('connection') || combined.includes('postgres') || combined.includes('db') || combined.includes('pool')) {
+  if (!combined.includes('redis') && !combined.includes('cache') && !combined.includes('cpu') && !combined.includes('throttl') && (combined.includes('connection') || combined.includes('postgres') || combined.includes('pool') || combined.includes('starvation') || combined.includes('psycopg2'))) {
     return {
       type: 'DB_CONNECTION_LEAK',
       title: 'Enforce PostgreSQL Connection Context Manager & Timeout',

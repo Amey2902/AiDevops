@@ -19,6 +19,7 @@ urlpatterns = [
     path('simulation/seed-cluster/', SeedClusterView.as_view(), name='seed-cluster'),
     path('knowledge/', KnowledgeBaseView.as_view(), name='knowledge-base'),
     path('webhook/', AlertWebhookView.as_view(), name='alert-webhook'),
+    path('incidents/webhook/', AlertWebhookView.as_view(), name='alert-webhook-incidents'),
     path('health/watchdog/', SystemHealthWatchdogView.as_view(), name='health-watchdog'),
     path('topology/', TopologyGraphView.as_view(), name='topology-graph'),
 ]

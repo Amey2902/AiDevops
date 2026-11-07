@@ -7,7 +7,7 @@ import urllib.parse
 import os
 import subprocess
 
-from .models import Incident, Investigation, EvidenceItem, RCAReport, IncidentStatus, IncidentSeverity
+from .models import Incident, Investigation, EvidenceItem, RCAReport, IncidentStatus, IncidentSeverity, EvidenceSourceType
 from .serializers import IncidentSerializer, InvestigationSerializer, EvidenceItemSerializer, RCAReportSerializer
 from core.agent.investigator import SREInvestigator
 from core.agent.gemini_client import GeminiClient
@@ -539,6 +539,32 @@ class AlertWebhookView(APIView):
                     elif "redis" in alert_str or "cache" in alert_str:
                         telemetry.set_scenario("redis_cache_timeout")
 
+            # Alert Grouping & De-duplication: check if active incident exists in past 40 seconds
+            dedup_window = timezone.now() - timezone.timedelta(seconds=40)
+            existing_incident = Incident.objects.filter(
+                service_name=service,
+                title=title,
+                triggered_at__gte=dedup_window,
+                status__in=[IncidentStatus.TRIGGERED, IncidentStatus.INVESTIGATING, IncidentStatus.IDENTIFIED, IncidentStatus.MITIGATED]
+            ).order_by("-triggered_at").first()
+
+            if existing_incident:
+                # Group into existing incident: append latest logs into evidence if present
+                if real_telemetry and real_telemetry.get("logs"):
+                    active_inv = existing_incident.investigations.first()
+                    if active_inv:
+                        for log_entry in real_telemetry["logs"]:
+                            EvidenceItem.objects.create(
+                                investigation=active_inv,
+                                source_type=EvidenceSourceType.LOGS,
+                                title=f"Correlated Log Event ({service})",
+                                description=f"[{log_entry.get('level', 'INFO')}] {log_entry.get('message', '')}",
+                                raw_data={"log": log_entry},
+                                confidence_impact=0.9
+                            )
+                created_incidents.append(IncidentSerializer(existing_incident).data)
+                continue
+
             incident = Incident.objects.create(
                 title=title,
                 service_name=service,
@@ -613,13 +639,15 @@ class TopologyGraphView(APIView):
     Returns real-time topology nodes and edges with dynamic cascading failure states.
     """
     def get(self, request):
-        active_incidents = Incident.objects.exclude(status=IncidentStatus.RESOLVED)
-        checkout_incident = active_incidents.filter(service_name="checkout-api").first()
-        is_checkout_crit = bool(checkout_incident and checkout_incident.severity == IncidentSeverity.P1_CRITICAL)
-        is_checkout_deg = bool(checkout_incident and not is_checkout_crit)
+        recent_cutoff = timezone.now() - timezone.timedelta(seconds=40)
+        recent_incidents = Incident.objects.filter(triggered_at__gte=recent_cutoff).exclude(status=IncidentStatus.RESOLVED)
         
-        has_db_issue = any("connection" in (i.title + i.summary).lower() or "postgres" in (i.title + i.summary).lower() for i in active_incidents)
-        has_cache_issue = any("redis" in (i.title + i.summary).lower() or "cache" in (i.title + i.summary).lower() for i in active_incidents)
+        active_api_incident = recent_incidents.filter(service_name__in=["checkout-api", "shop-api"]).first()
+        is_checkout_crit = bool(active_api_incident and active_api_incident.severity == IncidentSeverity.P1_CRITICAL)
+        is_checkout_deg = bool(active_api_incident and not is_checkout_crit)
+        
+        has_db_issue = any("connection" in (i.title + i.summary).lower() or "postgres" in (i.title + i.summary).lower() or "pool" in (i.title + i.summary).lower() for i in recent_incidents)
+        has_cache_issue = any("redis" in (i.title + i.summary).lower() or "cache" in (i.title + i.summary).lower() for i in recent_incidents)
 
         nodes = [
             {
@@ -648,7 +676,7 @@ class TopologyGraphView(APIView):
                 "icon": "server",
                 "metrics": "512MB RAM" if is_checkout_crit else "120MB RAM",
                 "details": "Python / Flask Microservice (Port 5000)",
-                "active_incident": checkout_incident.title if checkout_incident else None
+                "active_incident": active_api_incident.title if active_api_incident else None
             },
             {
                 "id": "postgres-db",
@@ -673,13 +701,13 @@ class TopologyGraphView(APIView):
         edges = [
             { "from": "ingress", "to": "frontend", "status": "active", "latency": "4ms" },
             { "from": "frontend", "to": "checkout-api", "status": "degraded" if is_checkout_crit else "active", "latency": "3200ms" if is_checkout_crit else "14ms" },
-            { "from": "checkout-api", "to": "postgres-db", "status": "broken" if (has_db_issue or is_checkout_crit) else "active", "latency": "TIMEOUT" if (has_db_issue or is_checkout_crit) else "6ms" },
+            { "from": "checkout-api", "to": "postgres-db", "status": "broken" if has_db_issue else "active", "latency": "TIMEOUT" if has_db_issue else "6ms" },
             { "from": "checkout-api", "to": "redis-cache", "status": "broken" if has_cache_issue else "active", "latency": "TIMEOUT" if has_cache_issue else "2ms" }
         ]
 
         return Response({
             "nodes": nodes,
             "edges": edges,
-            "active_outages_count": active_incidents.count(),
-            "overall_cluster_health": "critical" if (is_checkout_crit or has_db_issue) else ("warning" if active_incidents.exists() else "healthy")
+            "active_outages_count": recent_incidents.count(),
+            "overall_cluster_health": "critical" if (is_checkout_crit or has_db_issue) else ("warning" if (recent_incidents.exists() or has_cache_issue) else "healthy")
         })
